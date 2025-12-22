@@ -1,0 +1,35 @@
+#!/sbin/openrc-run
+
+description="Streams GPSD JSON data to Waydroid"
+
+depend() {
+    need gpsd
+    after gpsd
+}
+
+FIFO_PATH="/tmp/gpsd_pipe"
+PIDFILE="/run/${RC_SVCNAME}.pid"
+
+start() {
+    ebegin "Starting Waydroid GPS Streamer"
+    
+    # Ensure the FIFO exists with correct permissions
+    if [ ! -p "$FIFO_PATH" ]; then
+        mkfifo "$FIFO_PATH"
+    fi
+    chmod 666 "$FIFO_PATH"
+
+    start-stop-daemon --start --background \
+        --make-pidfile --pidfile "$PIDFILE" \
+        --exec /bin/sh -- -c \
+        "echo '?WATCH={\"enable\":true,\"json\":true};' | socat - TCP:127.0.0.1:2947; exec gpspipe --json > $FIFO_PATH"
+    
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping Waydroid GPS Streamer"
+    start-stop-daemon --stop --pidfile "$PIDFILE"
+    rm -f "$PIDFILE"
+    eend $?
+}
