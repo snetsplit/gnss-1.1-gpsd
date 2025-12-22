@@ -12,7 +12,8 @@ The host needs to be configured to pipe gpsd JSON into Waydroid:
     ```
 
     
-2) A service is needed to inject Install the needed service:
+2) A service is needed to inject gspd output into Waydroid:
+
    a) if systemd based:
 ```
 sudo wget -O /etc/systemd/system/waydroid-gpsd.service \

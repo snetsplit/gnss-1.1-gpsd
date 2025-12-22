@@ -75,8 +75,8 @@ void GpsdMonitor::getGpsdServerConnectionInfo() {
 void GpsdMonitor::monitorLoop() {
 
 //    const char* GPSD_DEV = "/dev/ttyGPSD";
-
-    const std::string GPSD_DEV = android::base::GetProperty("persist.sys.gnss.gpsd.chardevice", "/dev/ttyGPSD");
+    const std::string GPSD_DEV = android::base::GetProperty("persist.sys.gnss.gpsd.chardevice", "/dev/ttyGPSDJSON");
+    LOGI("Read GPS device %s", GPSD_DEV.c_str());
 
     while (mRunning) {
         int fd = open(GPSD_DEV.c_str(), O_RDONLY | O_NOCTTY);
