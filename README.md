@@ -52,7 +52,7 @@ lxc.mount.entry = /tmp/gpsd_pipe dev/ttyGPSD none bind,optional,create=file 0 0
 
 2) create a shell script and configure it to run prior to Waydroid:
 ```
-#use a fifo to
+#use a fifo to pipe GPSD output, insulting the LXC from GPSD restarts
 if [ ! -p "/tmp/gpsd_pipe" ]; then
     mkfifo "/tmp/gpsd_pipe"
     chmod 666 "/tmp/gpsd_pipe"
