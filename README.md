@@ -50,18 +50,93 @@ The host needs to be configured:
 lxc.mount.entry = /tmp/gpsd_pipe dev/ttyGPSD none bind,optional,create=file 0 0
 ```
 
-2) create a shell script and configure it to run prior to Waydroid:
-```
-#use a fifo to pipe GPSD output, insulting the LXC container from GPSD restarts
-if [ ! -p "/tmp/gpsd_pipe" ]; then
-    mkfifo "/tmp/gpsd_pipe"
-    chmod 666 "/tmp/gpsd_pipe"
-fi
-(echo '?WATCH={"enable":true,"json":true};' | socat - TCP:127.0.0.1:2947; gpspipe --json) > /tmp/gps_pipe &
 
-#optional if waydroid currently isn't running
-waydroid container restart
+2) create a service to create the pipe:
+   a) if systemd create this file: _/etc/systemd/system/waydroid-gpsd-stream.service_
 ```
+[Unit]
+Description=Streams GPSD JSON data to a FIFO for Waydroid
+After=gpsd.service
+Requires=gpsd.service
+
+[Service]
+Type=simple
+Environment=FIFO_PATH=/tmp/gpsd_pipe
+
+ExecStartPre=/bin/sh -c '\
+    if [ ! -p "$FIFO_PATH" ]; then \
+        rm -f "$FIFO_PATH"; \
+        mkfifo "$FIFO_PATH"; \
+        chmod 666 "$FIFO_PATH"; \
+    fi'
+
+# gpspipe sends WATCH itself — no socat, no protocol abuse
+ExecStart=/bin/sh -c 'exec gpspipe --json > "$FIFO_PATH"'
+
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+```
+   b) run:
+```
+sudo systemctl daemon-reload
+sudo systemctl enable --now waydroid-gpsd-stream.service
+sudo reboot
+```
+
+   a) if openRC create this file: _/raspberrypi/etc/init.d/waydroid-gps_
+```
+#!/sbin/openrc-run
+
+# Description of the service
+description="Streams GPSD JSON data to a FIFO for Waydroid"
+
+depend() {
+    need gpsd
+    after gpsd
+}
+
+# Configuration
+FIFO_PATH="/tmp/gpsd_pipe"
+PIDFILE="/run/${RC_SVCNAME}.pid"
+
+start() {
+    ebegin "Starting Waydroid GPS Streamer"
+    
+    # Ensure the FIFO exists with correct permissions
+    if [ ! -p "$FIFO_PATH" ]; then
+        mkfifo "$FIFO_PATH"
+        chmod 666 "$FIFO_PATH"
+    fi
+
+    # Start the stream in the background
+    # 1. Send the WATCH command to gpsd to trigger JSON output
+    # 2. Use gpspipe to capture the raw JSON stream and pipe to FIFO
+    # (echo '?WATCH={"enable":true,"json":true};' | socat - TCP:127.0.0.1:2947; gpspipe --json) > /tmp/gps_pipe &
+
+    start-stop-daemon --start --background \
+        --make-pidfile --pidfile "$PIDFILE" \
+        --exec /bin/sh -- -c \
+        "echo '?WATCH={\"enable\":true,\"json\":true};' | socat - TCP:127.0.0.1:2947; exec gpspipe --json > $FIFO_PATH"
+    
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping Waydroid GPS Streamer"
+    start-stop-daemon --stop --pidfile "$PIDFILE"
+    rm -f "$PIDFILE"
+    eend $?
+}
+```
+   b) run:
+```
+sudo rc-update add waydroid-gps
+sudo reboot
+```
+
 
 **Troubleshooting:**
 ```
@@ -73,3 +148,5 @@ sudo waydroid shell cat /dev/ttyGPSD
 {"class":"SKY","device":"/dev/pts/4","hdop":0.83,"pdop":1.37,"vdop":1.08,"uSat":12}
 {"class":"DEVICE","path":"/dev/pts/4","activated":"2025-12-22T02:34:36.721Z"}
 ```
+
+Make sure gpspipe and socat commands are installed

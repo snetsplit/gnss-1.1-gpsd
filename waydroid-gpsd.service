@@ -1,0 +1,24 @@
+[Unit]
+Description=Streams GPSD JSON data to Waydroid
+After=gpsd.service
+Requires=gpsd.service
+
+[Service]
+Type=simple
+Environment=FIFO_PATH=/tmp/gpsd_pipe
+
+ExecStartPre=/bin/sh -c '\
+    if [ ! -p "$FIFO_PATH" ]; then \
+        rm -f "$FIFO_PATH"; \
+        mkfifo "$FIFO_PATH"; \
+        chmod 666 "$FIFO_PATH"; \
+    fi'
+
+# gpspipe sends WATCH itself — no socat, no protocol abuse
+ExecStart=/bin/sh -c 'exec gpspipe --json > "$FIFO_PATH"'
+
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
