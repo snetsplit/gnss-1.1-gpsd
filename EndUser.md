@@ -1,14 +1,14 @@
 
 The host needs to be configured to pipe gpsd JSON into Waydroid:
 
-1) Make sure gpsd, gpspipe, and socat are installed on the linux host.
+1) Make sure gpsd, and gpspipe are installed on the linux host.
     a) On Gentoo: 
     ```
-    sudo emerge --ask --noreplace net-misc/socat sci-geosciences/gpsd
+    sudo emerge --ask --noreplace sci-geosciences/gpsd
     ```
     b) On Debian based systems: 
     ```
-    sudo apt install socat gpsd gpsd-clients
+    sudo apt install gpsd gpsd-clients
     ```
 
     
@@ -35,7 +35,7 @@ sudo rc-service waydroid-gpsd start
 ```
 
 
-3) On the host edit */var/lib/waydroid/lxc/waydroid/config_nodes* and create the virtual mount:
+3) On the host edit */var/lib/waydroid/lxc/waydroid/config_nodes* and create the virtual mount. Be sure not to create a duplicate entry:
 
 ```
 sudo sed -i '\|dev/ttyGPSDJSON|d' "/var/lib/waydroid/lxc/waydroid/config_nodes"

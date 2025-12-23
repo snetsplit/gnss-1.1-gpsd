@@ -208,17 +208,12 @@ void GpsdMonitor::processSatelliteInfo(nlohmann::json jsonRecord) {
     std::lock_guard<std::mutex> lock(mMutex);
 
     if (jsonRecord["satellites"].size() < 1) {
-
-        LOGI("woo=1");
         if (mGpsSatelliteTimeout == 0) {
-        LOGI("woo=11");
             mGpsSatelliteTimeout = std::time(nullptr) + 30;
             return;
         } else if (std::time(nullptr) < mGpsSatelliteTimeout) {
-        LOGI("woo=12");
             return;
         } else {
-        LOGI("woo=13");
             mSvStatus = GnssSvStatus{};
             mSvStatus.numSvs = 0;
             mGpsSatelliteTimeout = 0;
@@ -244,8 +239,6 @@ void GpsdMonitor::processSatelliteInfo(nlohmann::json jsonRecord) {
     mSvStatus = GnssSvStatus{};
     mSvStatus.numSvs = static_cast<int>(jsonRecord["satellites"].size());
 
-    LOGI("mSvStatus.numSvs=%d", mSvStatus.numSvs);
-
     // Populate GnssSvInfo for each satellite
     for (int i = 0; i < mSvStatus.numSvs; ++i) {
         auto& satellite = jsonRecord["satellites"][i];
@@ -268,7 +261,6 @@ void GpsdMonitor::processSatelliteInfo(nlohmann::json jsonRecord) {
         info.svFlag = GnssSvFlags::NONE | (satellite.value("used", false) ? GnssSvFlags::USED_IN_FIX : GnssSvFlags::NONE);
 
         mSvStatus.gnssSvList[i] = info;
-        LOGI("info.svid=%d", info.svid);
     }
 }
 
