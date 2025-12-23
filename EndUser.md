@@ -2,6 +2,7 @@
 The host needs to be configured to pipe gpsd JSON into Waydroid:
 
 1) Make sure gpsd, and gpspipe are installed on the linux host.
+
     a) On Gentoo: 
     ```
     sudo emerge --ask --noreplace sci-geosciences/gpsd
