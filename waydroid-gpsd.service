@@ -14,7 +14,6 @@ ExecStartPre=/bin/sh -c '\
         chmod 666 "$FIFO_PATH"; \
     fi'
 
-# gpspipe sends WATCH itself — no socat, no protocol abuse
 ExecStart=/bin/sh -c 'exec gpspipe --json > "$FIFO_PATH"'
 
 Restart=always
