@@ -72,7 +72,7 @@ void GpsdMonitor::getGpsdServerConnectionInfo() {
     mGpsdServerPort = android::base::GetIntProperty("persist.sys.gnss.gpsd.port", 2947);
 }
 
-
+/*
 void GpsdMonitor::monitorLoop() {
 
 //    const char* GPSD_DEV = "/dev/ttyGPSD";
@@ -121,7 +121,7 @@ void GpsdMonitor::monitorLoop() {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 }
-
+*/
 
 void GpsdMonitor::monitorLoop() {
     const std::string SOCKET_PATH = android::base::GetProperty("persist.sys.gnss.gpsd.sock", "/data/local/tmp/gpsd.sock");
