@@ -73,7 +73,7 @@ void GpsdMonitor::getGpsdServerConnectionInfo() {
 }
 
 /*
-void GpsdMonitor::monitorLoop() {
+void GpsdMonitor::monitorLoopold() {
 
 //    const char* GPSD_DEV = "/dev/ttyGPSD";
     const std::string GPSD_DEV = android::base::GetProperty("persist.sys.gnss.gpsd.chardevice", "/dev/ttyGPSDJSON");
@@ -157,7 +157,7 @@ void GpsdMonitor::monitorLoop() {
                 if (n < 0) {
                     LOGE("Read error on socket %s: %s", SOCKET_PATH.c_str(), strerror(errno));
                 } else {
-                    LOGE("GPS socket closed (EOF), reopening...");
+                    LOGE("%s socket closed (EOF), reopening...", SOCKET_PATH.c_str());
                 }
                 break;  // exit inner loop → reconnect
             }
@@ -183,7 +183,7 @@ void GpsdMonitor::monitorLoop() {
 
 
 /*
-void GpsdMonitor::monitorLoopOld() {
+void GpsdMonitor::monitorLoopOlder() {
     getGpsdServerConnectionInfo();
     while (mRunning) {
         int sock = socket(AF_INET, SOCK_STREAM, 0);
