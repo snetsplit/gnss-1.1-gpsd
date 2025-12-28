@@ -40,7 +40,7 @@ sudo rc-service waydroid-gpsd start
 
 ```
 sudo sed -i '\|dev/ttyGPSDJSON|d' "/var/lib/waydroid/lxc/waydroid/config_nodes"
-sudo echo "lxc.mount.entry = /tmp/gpsd_pipe dev/ttyGPSDJSON none bind,optional,create=file 0 0" >> /var/lib/waydroid/lxc/waydroid/config_nodes
+sudo echo "lxc.mount.entry = /tmp/gpsd_pipe dev/ttyGPSDJSON none bind,optional,create=file,perm=777 0 0" >> /var/lib/waydroid/lxc/waydroid/config_nodes
 ```
 
 verify only one entry
@@ -50,6 +50,8 @@ cat /var/lib/waydroid/lxc/waydroid/config_nodes | grep "ttyGPSDJSON"
 
 
 **Troubleshooting:**
+Assuming all the steps were followed this should be working, but some general steps to check:
+
 ```
 sudo waydroid shell cat /dev/ttyGPSDJSON
 ```
@@ -60,6 +62,9 @@ sudo waydroid shell cat /dev/ttyGPSDJSON
 {"class":"DEVICE","path":"/dev/pts/4","activated":"2025-12-22T02:34:36.721Z"}
 ```
 
+Further check
+```
+sudo waydroid logcat | grep -E "Fatal|SIGSEGV|Abort|GnssGpsd|GpsdMonitor" 
+```
 
-
-Run cgps to check gpsd output
+Run the cgps command to check gpsd output to make sure you're getting a good lock. If not, you need to look at config for your gps device and gpsd.
