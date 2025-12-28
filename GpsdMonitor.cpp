@@ -13,6 +13,7 @@
 #include <fstream>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <sys/un.h>
 #include <android/hardware/gnss/1.0/types.h>
 #include <android/hardware/gnss/1.0/IGnssCallback.h>
 #include <android-base/properties.h>
@@ -120,6 +121,66 @@ void GpsdMonitor::monitorLoop() {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 }
+
+
+void GpsdMonitor::monitorLoop() {
+    const std::string SOCKET_PATH = android::base::GetProperty("persist.sys.gnss.gpsd.sock", "/data/local/tmp/gpsd.sock");
+    LOGI("Using GPS socket %s from prop \"persist.sys.gnss.gpsd.sock\"", SOCKET_PATH.c_str());
+
+    while (mRunning) {
+        int sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (sockfd < 0) {
+            LOGE("Failed to create socket: %s", strerror(errno));
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
+        }
+
+        sockaddr_un addr{};
+        addr.sun_family = AF_UNIX;
+        strncpy(addr.sun_path, SOCKET_PATH.c_str(), sizeof(addr.sun_path) - 1);
+
+        if (connect(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+            LOGE("Failed to connect to socket: %s: %s", SOCKET_PATH.c_str(), strerror(errno));
+            close(sockfd);
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
+        }
+
+        LOGI("Connected to socket: %s", SOCKET_PATH.c_str());
+
+        char buffer[1024];
+        std::string partialLine;
+
+        while (mRunning) {
+            ssize_t n = read(sockfd, buffer, sizeof(buffer) - 1);
+            if (n <= 0) {
+                if (n < 0) {
+                    LOGE("Read error on socket %s: %s", SOCKET_PATH.c_str(), strerror(errno));
+                } else {
+                    LOGE("GPS socket closed (EOF), reopening...");
+                }
+                break;  // exit inner loop → reconnect
+            }
+
+            buffer[n] = '\0';
+            partialLine.append(buffer, n);
+
+            size_t pos;
+            while ((pos = partialLine.find('\n')) != std::string::npos) {
+                std::string line = partialLine.substr(0, pos);
+                partialLine.erase(0, pos + 1);
+
+                if (!line.empty()) {
+                    parseLine(line);
+                }
+            }
+        }
+
+        close(sockfd);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
 
 /*
 void GpsdMonitor::monitorLoopOld() {
