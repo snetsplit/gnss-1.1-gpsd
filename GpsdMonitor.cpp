@@ -73,7 +73,7 @@ void GpsdMonitor::getGpsdServerConnectionInfo() {
 }
 
 void GpsdMonitor::monitorLoop() {
-    const std::string FIFO_PATH = android::base::GetProperty("persist.sys.gnss.gpsd.pipe", "/data/local/tmp/gpsd.pipe");
+    const std::string FIFO_PATH = android::base::GetProperty("persist.sys.gnss.gpsd.pipe", "/data/system/gps.pipe");
 
     LOGI("Using GPS FIFO %s from prop \"persist.sys.gnss.gpsd.pipe\"", FIFO_PATH.c_str());
 
