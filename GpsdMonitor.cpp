@@ -235,7 +235,7 @@ void GpsdMonitor::monitorLoopnewer() {
 }
 
 
-/*
+
 void GpsdMonitor::monitorLoopOlder() {
     getGpsdServerConnectionInfo();
     while (mRunning) {
