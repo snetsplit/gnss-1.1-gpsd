@@ -72,8 +72,61 @@ void GpsdMonitor::getGpsdServerConnectionInfo() {
     mGpsdServerPort = android::base::GetIntProperty("persist.sys.gnss.gpsd.port", 2947);
 }
 
-/*
 void GpsdMonitor::monitorLoop() {
+    const std::string FIFO_PATH = android::base::GetProperty("persist.sys.gnss.gpsd.pipe", "/data/local/tmp/gpsd.pipe");
+
+    LOGI("Using GPS FIFO %s from prop \"persist.sys.gnss.gpsd.pipe\"", FIFO_PATH.c_str());
+
+    while (mRunning) {
+        // Open FIFO (blocks until writer opens it)
+        int fd = open(FIFO_PATH.c_str(), O_RDONLY);
+        if (fd < 0) {
+            LOGE("Failed to open FIFO %s: %s",
+                 FIFO_PATH.c_str(), strerror(errno));
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
+        }
+
+        LOGI("Opened FIFO %s", FIFO_PATH.c_str());
+
+        char buffer[1024];
+        std::string partialLine;
+
+        while (mRunning) {
+            ssize_t n = read(fd, buffer, sizeof(buffer) - 1);
+            if (n <= 0) {
+                if (n < 0) {
+                    LOGE("Read error on FIFO %s: %s",
+                         FIFO_PATH.c_str(), strerror(errno));
+                } else {
+                    LOGE("FIFO %s closed (EOF), reopening...",
+                         FIFO_PATH.c_str());
+                }
+                break;  // exit inner loop → reopen FIFO
+            }
+
+            buffer[n] = '\0';
+            partialLine.append(buffer, n);
+
+            size_t pos;
+            while ((pos = partialLine.find('\n')) != std::string::npos) {
+                std::string line = partialLine.substr(0, pos);
+                partialLine.erase(0, pos + 1);
+
+                if (!line.empty()) {
+                    parseLine(line);
+                }
+            }
+        }
+
+        close(fd);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
+
+/*
+void GpsdMonitor::monitorLoopolder() {
 
 //    const char* GPSD_DEV = "/dev/ttyGPSD";
     const std::string GPSD_DEV = android::base::GetProperty("persist.sys.gnss.gpsd.chardevice", "/dev/ttyGPSDJSON");
@@ -121,9 +174,9 @@ void GpsdMonitor::monitorLoop() {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 }
-*/
 
-void GpsdMonitor::monitorLoop() {
+
+void GpsdMonitor::monitorLoopnewer() {
     const std::string SOCKET_PATH = android::base::GetProperty("persist.sys.gnss.gpsd.sock", "/data/local/tmp/gpsd.sock");
     LOGI("Using GPS socket %s from prop \"persist.sys.gnss.gpsd.sock\"", SOCKET_PATH.c_str());
 
@@ -157,7 +210,7 @@ void GpsdMonitor::monitorLoop() {
                 if (n < 0) {
                     LOGE("Read error on socket %s: %s", SOCKET_PATH.c_str(), strerror(errno));
                 } else {
-                    LOGE("GPS socket closed (EOF), reopening...");
+                    LOGE("%s socket closed (EOF), reopening...", SOCKET_PATH.c_str());
                 }
                 break;  // exit inner loop → reconnect
             }
@@ -183,7 +236,7 @@ void GpsdMonitor::monitorLoop() {
 
 
 /*
-void GpsdMonitor::monitorLoopOld() {
+void GpsdMonitor::monitorLoopOlder() {
     getGpsdServerConnectionInfo();
     while (mRunning) {
         int sock = socket(AF_INET, SOCK_STREAM, 0);
