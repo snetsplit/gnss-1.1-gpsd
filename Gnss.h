@@ -10,6 +10,9 @@
 #include "GnssConfiguration.h"
 
 
+#include "nlohmann/json.hpp"
+
+
 namespace android {
 namespace hardware {
 namespace gnss {
@@ -90,7 +93,7 @@ struct Gnss : public IGnss {
     std::string mGpsdServerAddress = "192.168.240.1";
     int mGpsdServerPort =  2947;
 
-    const uint16_t startLocationFlags = static_cast<uint16_t>(GnssLocationFlags::HAS_LAT_LONG | GnssLocationFlags::HAS_HORIZONTAL_ACCURACY);
+    const uint16_t startLocationFlags = static_cast<uint16_t>(V1_0::GnssLocationFlags::HAS_LAT_LONG | V1_0::GnssLocationFlags::HAS_HORIZONTAL_ACCURACY);
     const GnssLocation GnssLocationStarter = {
         .gnssLocationFlags = startLocationFlags,
         .latitudeDegrees = 41.94394,
