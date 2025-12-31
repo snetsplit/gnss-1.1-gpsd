@@ -8,6 +8,8 @@
 #include <mutex>
 #include <thread>
 #include "GnssConfiguration.h"
+#include "IGnssLocationListener.h"
+
 
 namespace android {
 namespace hardware {
@@ -32,7 +34,6 @@ using GnssSvStatus = V1_0::IGnssCallback::GnssSvStatus;
  * Unlike the gnss/1.0/default implementation, which is a shim layer to the legacy gps.h, this
  * default implementation serves as a mock implementation for emulators
  */
-class IGnssLocationListener;
 
 struct Gnss : public IGnss, public IGnssLocationListener {
     Gnss();

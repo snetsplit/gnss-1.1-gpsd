@@ -12,6 +12,8 @@
 
 #include "nlohmann/json.hpp"
 #include <chrono>
+#include "IGnssLocationListener.h"
+
 
 using json = nlohmann::json;
 using GnssSvInfo = android::hardware::gnss::V1_0::IGnssCallback::GnssSvInfo;
@@ -47,8 +49,6 @@ struct PositionInfo {
     int mode = 0; // 1=No fix, 2=2D fix, 3=3D fix
 };
 
-// GpsdMonitor.h
-class IGnssLocationListener;
 
 class GpsdMonitor {
 public:
