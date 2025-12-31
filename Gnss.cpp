@@ -35,6 +35,13 @@ Return<bool> Gnss::setCallback(const sp<::android::hardware::gnss::V1_0::IGnssCa
     return false;
 }
 
+class Gnss : public IGnssLocationListener {
+    void onLocationUpdated(const GnssLocation& location) override {
+        reportLocation(location);
+    }
+};
+
+
 Return<bool> Gnss::start() {
     if (mIsActive) {
         ALOGW("GnssGpsd has started. Restarting...");
@@ -49,8 +56,8 @@ Return<bool> Gnss::start() {
             this->reportSvStatus(svStatus);
 
 
-            auto location = this->getGnssLocation();
-            this->reportLocation(location);
+            //auto location = this->getGnssLocation();
+           // this->reportLocation(location);
 
             std::this_thread::sleep_for(std::chrono::milliseconds(mMinIntervalMs));
         }
@@ -152,7 +159,9 @@ Return<bool> Gnss::setCallback_1_1(
         return false;
     }
 
+    GpsdMonitor::getInstance().setLocationListener(this);
     GpsdMonitor::getInstance().start();
+
     ALOGI("GpsdMonitor started");
 
     sGnssCallback = callback;
