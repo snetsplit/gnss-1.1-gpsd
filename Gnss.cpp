@@ -1,14 +1,32 @@
 #define LOG_TAG "GnssGpsd"
 
-#include "Gnss.h"
-#include <android/hardware/gnss/1.0/types.h>
-#include <log/log.h>
 #include "Constants.h"
+#include "Gnss.h"
 #include "GnssDebug.h"
 #include "GnssMeasurement.h"
-#include "Utils.h"
 #include "GpsdMonitor.h"
+#include "Utils.h"
 
+#include <android-base/properties.h>
+#include <android/hardware/gnss/1.0/IGnssCallback.h>
+#include <android/hardware/gnss/1.0/types.h>
+#include <arpa/inet.h>
+#include <chrono>
+#include <ctime>
+#include <fcntl.h>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <log/log.h>
+#include <netdb.h>
+#include <regex>
+#include <sstream>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+#include <unistd.h>
+
+#include "nlohmann/json.hpp"
 
 namespace android {
 namespace hardware {
@@ -51,8 +69,8 @@ Return<bool> Gnss::start() {
     mIsActive = true;
     mThread = std::thread([this]() {
         while (mIsActive == true) {
-            auto svStatus = this->getSvStatus();
-            this->reportSvStatus(svStatus);
+          //  auto svStatus = this->getSvStatus();
+          //  this->reportSvStatus(svStatus);
 
 
             //auto location = this->getGnssLocation();
@@ -150,6 +168,209 @@ Return<sp<::android::hardware::gnss::V1_0::IGnssBatching>> Gnss::getExtensionGns
     return ::android::sp<::android::hardware::gnss::V1_0::IGnssBatching>{};
 }
 
+
+void Gnss::monitorLoop() {
+    const std::string FIFO_PATH = android::base::GetProperty("persist.sys.gnss.gpsd.pipe", "/data/system/gps.pipe");
+
+    LOGI("Using GPS FIFO %s from prop \"persist.sys.gnss.gpsd.pipe\"", FIFO_PATH.c_str());
+
+    while (mRunning) {
+
+        /* Ensure FIFO exists */
+        struct stat st;
+        if (stat(FIFO_PATH.c_str(), &st) != 0) {
+            if (errno == ENOENT) {
+                LOGI("FIFO %s does not exist, creating it",
+                     FIFO_PATH.c_str());
+
+                if (mkfifo(FIFO_PATH.c_str(), 0666) != 0) {
+                    LOGE("mkfifo(%s) failed: %s",
+                         FIFO_PATH.c_str(), strerror(errno));
+                    std::this_thread::sleep_for(std::chrono::seconds(2));
+                    continue;
+                }
+            } else {
+                LOGE("stat(%s) failed: %s",
+                     FIFO_PATH.c_str(), strerror(errno));
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                continue;
+            }
+        } else if (!S_ISFIFO(st.st_mode)) {
+            LOGE("%s exists but is not a FIFO", FIFO_PATH.c_str());
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            continue;
+        }
+
+        /* Open FIFO (blocks until writer connects) */
+        int fd = open(FIFO_PATH.c_str(), O_RDONLY);
+        if (fd < 0) {
+            LOGE("Failed to open FIFO %s: %s",
+                 FIFO_PATH.c_str(), strerror(errno));
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
+        }
+
+        LOGI("Opened FIFO %s", FIFO_PATH.c_str());
+
+        char buffer[1024];
+        std::string partialLine;
+
+        while (mRunning) {
+            ssize_t n = read(fd, buffer, sizeof(buffer) - 1);
+            if (n <= 0) {
+                if (n < 0) {
+                    LOGE("Read error on FIFO %s: %s",
+                         FIFO_PATH.c_str(), strerror(errno));
+                } else {
+                    LOGI("FIFO %s closed (EOF), reopening...",
+                         FIFO_PATH.c_str());
+                }
+                break;
+            }
+
+            buffer[n] = '\0';
+            partialLine.append(buffer, n);
+
+            size_t pos;
+            while ((pos = partialLine.find('\n')) != std::string::npos) {
+                std::string line = partialLine.substr(0, pos);
+                partialLine.erase(0, pos + 1);
+
+                if (!line.empty()) {
+                    parseLine(line);
+                }
+            }
+        }
+
+        close(fd);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
+
+void Gnss::parseLine(const std::string& line) {
+    nlohmann::json jsonRecord = json::parse(line, nullptr, false);
+
+    if(jsonRecord.is_discarded() || !jsonRecord.contains("class")) {
+        LOGE("JSON parse is a failure, or lacks class: %s", line.c_str());
+        return;
+    }
+
+
+    if (jsonRecord["class"] == "SKY") {
+        processSatelliteInfo(jsonRecord);
+    } else if (jsonRecord["class"] == "TPV") {
+        processVelocity(jsonRecord);
+    } else {
+        LOGE("Unknown class: %s", line.c_str());
+    }
+}
+
+
+void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    if (jsonRecord["satellites"].size() < 1) {
+        if (mGpsSatelliteTimeout == 0) {
+            mGpsSatelliteTimeout = std::time(nullptr) + 30;
+            return;
+        } else if (std::time(nullptr) < mGpsSatelliteTimeout) {
+            return;
+        } else {
+            mSvStatus = GnssSvStatus{};
+            mSvStatus.numSvs = 0;
+            mGpsSatelliteTimeout = 0;
+            return;
+        }
+    } else {
+        mGpsSatelliteTimeout = 0;
+    }
+
+
+    mSkyInfo.devicePath = jsonRecord.value("device", "");
+    mSkyInfo.measurementTimeUtc = jsonRecord.value("time", "");
+    mSkyInfo.longitudeDop = jsonRecord.value("xdop", 0.0);
+    mSkyInfo.latitudeDop = jsonRecord.value("ydop", 0.0);
+    mSkyInfo.verticalDop = jsonRecord.value("vdop", 0.0);
+    mSkyInfo.timeDop = jsonRecord.value("tdop", 0.0);
+    mSkyInfo.horizontalDop = jsonRecord.value("hdop", 0.0);
+    mSkyInfo.threeDimensionalPositionDop  = jsonRecord.value("pdop", 0.0);
+    mSkyInfo.geometricDop = jsonRecord.value("gdop", 0.0);
+    mSkyInfo.satellitesUsedCount = jsonRecord.value("uSat", 0);
+
+
+    mSvStatus = GnssSvStatus{};
+    mSvStatus.numSvs = static_cast<int>(jsonRecord["satellites"].size());
+
+    // Populate GnssSvInfo for each satellite
+    for (int i = 0; i < mSvStatus.numSvs; ++i) {
+        auto& satellite = jsonRecord["satellites"][i];
+        GnssSvInfo info;
+        //satelliteId
+        info.svid = satellite.value("PRN", 0);
+        switch (satellite.value("gnssid",69420)) {
+            case 0: info.constellation = GnssConstellationType::GPS; break;
+            case 1: info.constellation = GnssConstellationType::SBAS; break;
+            case 2: info.constellation = GnssConstellationType::GALILEO; break;
+            case 3: info.constellation = GnssConstellationType::BEIDOU; break;
+            case 5: info.constellation = GnssConstellationType::QZSS; break;
+            case 6: info.constellation = GnssConstellationType::GLONASS; break;
+            default: info.constellation = GnssConstellationType::UNKNOWN;
+        };
+        info.azimuthDegrees = satellite.value("az", 0);
+        info.elevationDegrees = satellite.value("el", 0);
+        //carrier To Noise Density DbHz
+        info.cN0Dbhz = satellite.value("ss", 0.0);      // dB-Hz
+        info.svFlag = GnssSvFlags::NONE | (satellite.value("used", false) ? GnssSvFlags::USED_IN_FIX : GnssSvFlags::NONE);
+
+        reportSvStatus(info);
+    }
+}
+
+void Gnss::processVelocity(nlohmann::json jsonRecord){
+    std::lock_guard<std::mutex> lock(mMutex);
+    GnssLocation location = GnssLocationStarter;
+    uint16_t flags = startLocationFlags;
+    if (jsonRecord.contains("lat") && jsonRecord.contains("lon")) {
+
+        location.latitudeDegrees  = jsonRecord.value("lat", 0.0);
+        location.longitudeDegrees = jsonRecord.value("lon", 0.0);
+        location.horizontalAccuracyMeters = jsonRecord.value("eph", 1.0);
+
+    } else {
+        return;
+    }
+
+    if (jsonRecord.contains("alt")) {
+
+        flags = static_cast<uint16_t>( flags | GnssLocationFlags::HAS_ALTITUDE | GnssLocationFlags::HAS_VERTICAL_ACCURACY);
+
+        location.verticalAccuracyMeters = jsonRecord.value("epv", 2 * jsonRecord.value("eph", 1.0));
+        location.altitudeMeters = jsonRecord.value("alt", 0.0);
+    }
+
+    if (jsonRecord.contains("speed")) {
+        flags |= GnssLocationFlags::HAS_SPEED;
+        location.speedMetersPerSec = jsonRecord.value("speed",0.0);
+        location.speedAccuracyMetersPerSecond = jsonRecord.value("eps", 0.5);
+    }
+
+    if (jsonRecord.contains("track")) {
+        flags |= GnssLocationFlags::HAS_BEARING;
+        location.bearingDegrees =  jsonRecord.value("track", 0.0);
+        location.speedAccuracyMetersPerSecond = jsonRecord.value("epd", 10.0);
+    }
+
+    location.timestamp = (jsonRecord.contains("timestamp") && jsonRecord["timestamp"].is_number_integer())
+    ? jsonRecord["timestamp"].get<int64_t>() : static_cast<int64_t>(time(NULL)) * 1000LL;
+
+    location.gnssLocationFlags = flags;
+
+    if (mListener) {
+        mListener->onLocationUpdated(location);
+    }
+}
+
 // Methods from ::android::hardware::gnss::V1_1::IGnss follow.
 Return<bool> Gnss::setCallback_1_1(
     const sp<::android::hardware::gnss::V1_1::IGnssCallback>& callback) {
@@ -158,8 +379,7 @@ Return<bool> Gnss::setCallback_1_1(
         return false;
     }
 
-    GpsdMonitor::getInstance().setLocationListener(this);
-    GpsdMonitor::getInstance().start();
+    monitorLoop();
 
     ALOGI("GpsdMonitor started");
 
@@ -214,13 +434,13 @@ Return<bool> Gnss::injectBestLocation(const GnssLocation&) {
 Return<GnssSvStatus> Gnss::getSvStatus() const {
     std::unique_lock<std::recursive_mutex> lock(mGnssConfiguration->getMutex());
 
-    return GpsdMonitor::getInstance().getGnssSvStatus();
+    return Gnss::getInstance().getGnssSvStatus();
 }
 
 Return<GnssLocation> Gnss::getGnssLocation() const {
     std::unique_lock<std::recursive_mutex> lock(mGnssConfiguration->getMutex());
 
-    return GpsdMonitor::getInstance().getGnssLocation();
+    return Gnss::getInstance().getGnssLocation();
 }
 
 Return<void> Gnss::reportLocation(const GnssLocation& location) const {

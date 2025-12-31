@@ -13,7 +13,6 @@ cc_binary {
     vendor: true,
     srcs: [
         "Gnss.cpp",
-        "GpsdMonitor.cpp",
         "GnssDebug.cpp",
         "GnssConfiguration.cpp",
         "GnssMeasurement.cpp",

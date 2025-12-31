@@ -8,7 +8,6 @@
 #include <mutex>
 #include <thread>
 #include "GnssConfiguration.h"
-#include "IGnssLocationListener.h"
 
 
 namespace android {
@@ -35,7 +34,7 @@ using GnssSvStatus = V1_0::IGnssCallback::GnssSvStatus;
  * default implementation serves as a mock implementation for emulators
  */
 
-struct Gnss : public IGnss, public IGnssLocationListener {
+struct Gnss : public IGnss {
     Gnss();
     ~Gnss();
     // Methods from ::android::hardware::gnss::V1_0::IGnss follow.
@@ -69,7 +68,6 @@ struct Gnss : public IGnss, public IGnssLocationListener {
         override;
     Return<sp<::android::hardware::gnss::V1_0::IGnssDebug>> getExtensionGnssDebug() override;
     Return<sp<::android::hardware::gnss::V1_0::IGnssBatching>> getExtensionGnssBatching() override;
-    void onLocationUpdated(const GnssLocation& location) override;
 
     // Methods from ::android::hardware::gnss::V1_1::IGnss follow.
     Return<bool> setCallback_1_1(
@@ -88,10 +86,32 @@ struct Gnss : public IGnss, public IGnssLocationListener {
 
     // Methods from ::android::hidl::base::V1_0::IBase follow.
    private:
+
+    std::string mGpsdServerAddress = "192.168.240.1";
+    int mGpsdServerPort =  2947;
+
+    const uint16_t startLocationFlags = static_cast<uint16_t>(GnssLocationFlags::HAS_LAT_LONG | GnssLocationFlags::HAS_HORIZONTAL_ACCURACY);
+    const GnssLocation GnssLocationStarter = {
+        .gnssLocationFlags = startLocationFlags,
+        .latitudeDegrees = 41.94394,
+        .longitudeDegrees = -85.63249,
+        .horizontalAccuracyMeters = 30.0,
+        .timestamp = static_cast<int64_t>(time(NULL)) * 1000l,
+    };
+
+    GnssLocation mGnssLocation = GnssLocationStarter;
+    time_t mGpsSatelliteTimeout = 0;
+
     Return<GnssSvStatus> getSvStatus() const;
     Return<GnssLocation> getGnssLocation() const;
     Return<void> reportLocation(const GnssLocation&) const;
     Return<void> reportSvStatus(const GnssSvStatus&) const;
+
+    void monitorLoop();
+    void getGpsdServerConnectionInfo();
+    void parseLine(const std::string& line);
+    void processSatelliteInfo(nlohmann::json jsonRecord);
+    void processVelocity(nlohmann::json jsonRecord);
 
     static sp<IGnssCallback> sGnssCallback;
     std::atomic<long> mMinIntervalMs;
