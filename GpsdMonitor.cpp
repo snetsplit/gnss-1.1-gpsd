@@ -17,7 +17,7 @@
 #include <android/hardware/gnss/1.0/types.h>
 #include <android/hardware/gnss/1.0/IGnssCallback.h>
 #include <android-base/properties.h>
-
+#include <sys/stat.h>
 
 #include "nlohmann/json.hpp"
 
