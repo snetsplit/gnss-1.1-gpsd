@@ -72,10 +72,9 @@ void GpsdMonitor::getGpsdServerConnectionInfo() {
     mGpsdServerPort = android::base::GetIntProperty("persist.sys.gnss.gpsd.port", 2947);
 }
 
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
+void GpsdMonitor::setLocationListener(IGnssLocationListener* listener) {
+    mListener = listener;
+}
 
 void GpsdMonitor::monitorLoop() {
     const std::string FIFO_PATH = android::base::GetProperty("persist.sys.gnss.gpsd.pipe", "/data/system/gps.pipe");
@@ -296,4 +295,10 @@ void GpsdMonitor::processVelocity(nlohmann::json jsonRecord){
     location.gnssLocationFlags = flags;
 
     mGnssLocation = location;
+
+    mGnssLocation = location;
+
+    if (mListener) {
+        mListener->onLocationUpdated(location);
+    }
 }

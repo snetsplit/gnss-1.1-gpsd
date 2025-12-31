@@ -47,10 +47,14 @@ struct PositionInfo {
     int mode = 0; // 1=No fix, 2=2D fix, 3=3D fix
 };
 
+// GpsdMonitor.h
+class IGnssLocationListener;
+
 class GpsdMonitor {
 public:
     static GpsdMonitor& getInstance();
 
+    void setLocationListener(IGnssLocationListener* listener);
     void start();
     void stop();
 
@@ -61,6 +65,7 @@ private:
     GpsdMonitor();
     ~GpsdMonitor();
 
+    IGnssLocationListener* mListener = nullptr;
     void monitorLoop();
     void getGpsdServerConnectionInfo();
     void parseLine(const std::string& line);
