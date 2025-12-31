@@ -35,11 +35,10 @@ Return<bool> Gnss::setCallback(const sp<::android::hardware::gnss::V1_0::IGnssCa
     return false;
 }
 
-class Gnss : public IGnssLocationListener {
-    void onLocationUpdated(const GnssLocation& location) override {
-        reportLocation(location);
-    }
-};
+void Gnss::onLocationUpdated(const GnssLocation& location) {
+    reportLocation(location);
+}
+
 
 
 Return<bool> Gnss::start() {
