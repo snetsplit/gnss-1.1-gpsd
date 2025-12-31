@@ -271,62 +271,79 @@ void Gnss::parseLine(const std::string& line) {
 void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
     std::lock_guard<std::mutex> lock(mMutex);
 
-    if (jsonRecord["satellites"].size() < 1) {
-        if (mGpsSatelliteTimeout == 0) {
-            mGpsSatelliteTimeout = std::time(nullptr) + 30;
-            return;
-        } else if (std::time(nullptr) < mGpsSatelliteTimeout) {
-            return;
-        } else {
-            mSvStatus = GnssSvStatus{};
-            mSvStatus.numSvs = 0;
-            mGpsSatelliteTimeout = 0;
-            return;
+    auto svStatus = GnssSvStatus{};
+    svStatus.numSvs = static_cast<int>(jsonRecord["satellites"].size());
+
+    const bool hasFix = mLastLocation.hasLatLong; // however you track fix state
+
+    uint32_t index = 0;
+
+    for (const auto& satellite : jsonRecord["satellites"]) {
+        if (index >= svStatus.numSvs) {
+            break; // safety guard
         }
-    } else {
-        mGpsSatelliteTimeout = 0;
+
+        GnssSvInfo gnssSvInfo{};
+        uint8_t flags = GnssSvFlags::NONE;
+
+        gnssSvInfo.svid = satellite.value("PRN", 0);
+        switch (satellite.value("gnssid", -1)) {
+            case 0: gnssSvInfo.constellation = GnssConstellationType::GPS; break;
+            case 1: gnssSvInfo.constellation = GnssConstellationType::SBAS; break;
+            case 2: gnssSvInfo.constellation = GnssConstellationType::GALILEO; break;
+            case 3: gnssSvInfo.constellation = GnssConstellationType::BEIDOU; break;
+            case 5: gnssSvInfo.constellation = GnssConstellationType::QZSS; break;
+            case 6: gnssSvInfo.constellation = GnssConstellationType::GLONASS; break;
+            default:
+                gnssSvInfo.constellation = GnssConstellationType::UNKNOWN;
+                break;
+        }
+
+        gnssSvInfo.azimuthDegrees   = satellite.value("az", 0.0f);
+        gnssSvInfo.elevationDegrees = satellite.value("el", 0.0f);
+
+        // Signal strength (mandatory)
+        gnssSvInfo.cN0Dbhz = satellite.value("ss", 0.0f);
+
+        // Ephemeris
+        if (satellite.value("ephemeris", false)) {
+            flags |= GnssSvFlags::HAS_EPHEMERIS_DATA;
+        }
+
+        // Almanac
+        if (satellite.value("almanac", false)) {
+            flags |= GnssSvFlags::HAS_ALMANAC_DATA;
+        }
+
+        // Used in fix (only if fix exists)
+        if (hasFix && satellite.value("used", false)) {
+            flags |= GnssSvFlags::USED_IN_FIX;
+        }
+
+        // Carrier frequency
+        if (satellite.contains("freq")) {
+            float freqHz = satellite.value("freq", 0.0);
+            if (freqHz > 0.0) {
+                gnssSvInfo.carrierFrequencyHz = freqHz;
+                flags |= GnssSvFlags::HAS_CARRIER_FREQUENCY;
+            }
+        }
+
+        gnssSvInfo.svFlag = flags;
+        mSvStatus.gnssSvList[index++] = gnssSvInfo;
     }
 
 
-    mSkyInfo.devicePath = jsonRecord.value("device", "");
-    mSkyInfo.measurementTimeUtc = jsonRecord.value("time", "");
-    mSkyInfo.longitudeDop = jsonRecord.value("xdop", 0.0);
-    mSkyInfo.latitudeDop = jsonRecord.value("ydop", 0.0);
-    mSkyInfo.verticalDop = jsonRecord.value("vdop", 0.0);
-    mSkyInfo.timeDop = jsonRecord.value("tdop", 0.0);
-    mSkyInfo.horizontalDop = jsonRecord.value("hdop", 0.0);
-    mSkyInfo.threeDimensionalPositionDop  = jsonRecord.value("pdop", 0.0);
-    mSkyInfo.geometricDop = jsonRecord.value("gdop", 0.0);
-    mSkyInfo.satellitesUsedCount = jsonRecord.value("uSat", 0);
-
-
-    mSvStatus = GnssSvStatus{};
-    mSvStatus.numSvs = static_cast<int>(jsonRecord["satellites"].size());
-
-    // Populate GnssSvInfo for each satellite
-    for (int i = 0; i < mSvStatus.numSvs; ++i) {
-        auto& satellite = jsonRecord["satellites"][i];
-        GnssSvInfo info;
-        //satelliteId
-        info.svid = satellite.value("PRN", 0);
-        switch (satellite.value("gnssid",69420)) {
-            case 0: info.constellation = GnssConstellationType::GPS; break;
-            case 1: info.constellation = GnssConstellationType::SBAS; break;
-            case 2: info.constellation = GnssConstellationType::GALILEO; break;
-            case 3: info.constellation = GnssConstellationType::BEIDOU; break;
-            case 5: info.constellation = GnssConstellationType::QZSS; break;
-            case 6: info.constellation = GnssConstellationType::GLONASS; break;
-            default: info.constellation = GnssConstellationType::UNKNOWN;
-        };
-        info.azimuthDegrees = satellite.value("az", 0);
-        info.elevationDegrees = satellite.value("el", 0);
-        //carrier To Noise Density DbHz
-        info.cN0Dbhz = satellite.value("ss", 0.0);      // dB-Hz
-        info.svFlag = GnssSvFlags::NONE | (satellite.value("used", false) ? GnssSvFlags::USED_IN_FIX : GnssSvFlags::NONE);
-
-        reportSvStatus(info);
-    }
+    reportSvStatus(svStatus);
 }
+
+    enum GnssSvFlags : uint8_t {
+        NONE                  = 0,
+        HAS_EPHEMERIS_DATA    = 1 << 0,
+        HAS_ALMANAC_DATA      = 1 << 1,
+        USED_IN_FIX           = 1 << 2,
+        HAS_CARRIER_FREQUENCY = 1 << 3
+    };
 
 void Gnss::processVelocity(nlohmann::json jsonRecord){
     std::lock_guard<std::mutex> lock(mMutex);
