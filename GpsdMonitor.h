@@ -22,7 +22,7 @@ using GnssLocation = android::hardware::gnss::V1_0::GnssLocation;
 using GnssLocationFlags = android::hardware::gnss::V1_0::GnssLocationFlags;
 using GnssConstellationType = android::hardware::gnss::V1_0::GnssConstellationType;
 using GnssSvFlags = android::hardware::gnss::V1_0::IGnssCallback::GnssSvFlags;
-using IGnssLocationListener = android::hardware::gnss::V1_1::implementation::IGnssLocationListener
+using IGnssLocationListener = android::hardware::gnss::V1_1::implementation::IGnssLocationListener;
 
 struct SkyInfo {
     std::string devicePath;                     // Device that produced this SKY record
