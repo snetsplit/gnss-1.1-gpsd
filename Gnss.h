@@ -32,7 +32,9 @@ using GnssSvStatus = V1_0::IGnssCallback::GnssSvStatus;
  * Unlike the gnss/1.0/default implementation, which is a shim layer to the legacy gps.h, this
  * default implementation serves as a mock implementation for emulators
  */
-struct Gnss : public IGnss {
+class IGnssLocationListener;
+
+struct Gnss : public IGnss, public IGnssLocationListener {
     Gnss();
     ~Gnss();
     // Methods from ::android::hardware::gnss::V1_0::IGnss follow.
@@ -66,6 +68,7 @@ struct Gnss : public IGnss {
         override;
     Return<sp<::android::hardware::gnss::V1_0::IGnssDebug>> getExtensionGnssDebug() override;
     Return<sp<::android::hardware::gnss::V1_0::IGnssBatching>> getExtensionGnssBatching() override;
+    void onLocationUpdated(const GnssLocation& location) override;
 
     // Methods from ::android::hardware::gnss::V1_1::IGnss follow.
     Return<bool> setCallback_1_1(
