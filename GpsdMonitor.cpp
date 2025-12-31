@@ -413,25 +413,30 @@ void GpsdMonitor::processVelocity(nlohmann::json jsonRecord){
         return;
     }
 
-    if (jsonRecord.contains("alt") && jsonRecord.contains("epv")) {
+    if (jsonRecord.contains("alt")) {
 
         flags = static_cast<uint16_t>( flags | GnssLocationFlags::HAS_ALTITUDE | GnssLocationFlags::HAS_VERTICAL_ACCURACY);
 
-        location.verticalAccuracyMeters = jsonRecord.value("epv", 0.0);
+        location.verticalAccuracyMeters = jsonRecord.value("epv", 2 * jsonRecord.value("eph", 1.0));
         location.altitudeMeters = jsonRecord.value("alt", 0.0);
     }
 
     if (jsonRecord.contains("speed")) {
         flags |= GnssLocationFlags::HAS_SPEED;
         location.speedMetersPerSec = jsonRecord.value("speed",0.0);
+        location.speedAccuracyMetersPerSecond = jsonRecord.value("eps", 0.5);
     }
 
     if (jsonRecord.contains("track")) {
         flags |= GnssLocationFlags::HAS_BEARING;
         location.bearingDegrees =  jsonRecord.value("track", 0.0);
+        location.speedAccuracyMetersPerSecond = jsonRecord.value("epd", 10.0);
     }
 
-    location.timestamp = static_cast<int64_t>(time(NULL)) * 1000l;
+    location.timestamp = (jsonRecord.contains("timestamp") && jsonRecord["timestamp"].is_number_integer())
+    ? jsonRecord["timestamp"].get<int64_t>() : static_cast<int64_t>(time(NULL)) * 1000LL;
+    }
+
     location.gnssLocationFlags = flags;
 
     mGnssLocation = location;
