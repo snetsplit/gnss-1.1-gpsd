@@ -435,7 +435,6 @@ void GpsdMonitor::processVelocity(nlohmann::json jsonRecord){
 
     location.timestamp = (jsonRecord.contains("timestamp") && jsonRecord["timestamp"].is_number_integer())
     ? jsonRecord["timestamp"].get<int64_t>() : static_cast<int64_t>(time(NULL)) * 1000LL;
-    }
 
     location.gnssLocationFlags = flags;
 
