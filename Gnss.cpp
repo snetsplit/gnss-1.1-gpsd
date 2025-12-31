@@ -37,6 +37,12 @@ namespace implementation {
 using ::android::hardware::gnss::common::Utils;
 using GnssSvFlags = IGnssCallback::GnssSvFlags;
 using namespace ::android::hardware::gnss::common;
+using json = nlohmann::json;
+
+
+#define LOG_TAG "GpsdMonitor"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 const uint32_t MIN_INTERVAL_MILLIS = 100;
 sp<::android::hardware::gnss::V1_1::IGnssCallback> Gnss::sGnssCallback = nullptr;
@@ -52,11 +58,6 @@ Return<bool> Gnss::setCallback(const sp<::android::hardware::gnss::V1_0::IGnssCa
     // Mock handles only new callback (see setCallback1_1) coming from Android P+
     return false;
 }
-
-void Gnss::onLocationUpdated(const GnssLocation& location) {
-    reportLocation(location);
-}
-
 
 
 Return<bool> Gnss::start() {
