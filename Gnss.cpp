@@ -269,6 +269,7 @@ void Gnss::parseLine(const std::string& line) {
 }
 
 
+
 void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
     std::lock_guard<std::mutex> lock(mMutex);
 
@@ -283,7 +284,7 @@ void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
         }
 
         GnssSvInfo gnssSvInfo{};
-        auto flags = GnssSvFlags::NONE;
+        android::hardware::hidl_bitfield<GnssSvFlags> flags = 0;
 
         gnssSvInfo.svid = satellite.value("PRN", 0);
         switch (satellite.value("gnssid", -1)) {
