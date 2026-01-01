@@ -283,7 +283,7 @@ void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
         }
 
         GnssSvInfo gnssSvInfo{};
-        GnssSvFlags flags = GnssSvFlags::NONE;
+        auto flags = GnssSvFlags::NONE;
 
         gnssSvInfo.svid = satellite.value("PRN", 0);
         switch (satellite.value("gnssid", -1)) {
