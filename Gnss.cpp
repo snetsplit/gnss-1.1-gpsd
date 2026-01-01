@@ -172,14 +172,12 @@ void Gnss::monitorLoop() {
                      FIFO_PATH.c_str());
 
                 if (mkfifo(FIFO_PATH.c_str(), 0666) != 0) {
-                    LOGE("mkfifo(%s) failed: %s",
-                         FIFO_PATH.c_str(), strerror(errno));
+                    LOGE("mkfifo(%s) failed: %s", FIFO_PATH.c_str(), strerror(errno));
                     std::this_thread::sleep_for(std::chrono::seconds(2));
                     continue;
                 }
             } else {
-                LOGE("stat(%s) failed: %s",
-                     FIFO_PATH.c_str(), strerror(errno));
+                LOGE("stat(%s) failed: %s", FIFO_PATH.c_str(), strerror(errno));
                 std::this_thread::sleep_for(std::chrono::seconds(2));
                 continue;
             }
@@ -198,13 +196,18 @@ void Gnss::monitorLoop() {
             continue;
         }
 
-        LOGI("Opened FIFO %s", FIFO_PATH.c_str());
+        int step = 0;
+        LOGI("Step: :d", step++);
 
         char buffer[1024];
         std::string partialLine;
+        LOGI("Step: :d", step++);
 
+        LOGI("Opened FIFO %s", FIFO_PATH.c_str());
         while (mIsActive) {
+        LOGI("Step: :d", step++);
             ssize_t n = read(fd, buffer, sizeof(buffer) - 1);
+        LOGI("Step: :d", step++);
             if (n <= 0) {
                 if (n < 0) {
                     LOGE("Read error on FIFO %s: %s",
@@ -215,11 +218,15 @@ void Gnss::monitorLoop() {
                 }
                 break;
             }
+        LOGI("Step: :d", step++);
 
             buffer[n] = '\0';
+        LOGI("Step: :d", step++);
             partialLine.append(buffer, n);
 
+        LOGI("Step: :d", step++);
             size_t pos;
+        LOGI("Step: :d", step++);
             while ((pos = partialLine.find('\n')) != std::string::npos) {
                 std::string line = partialLine.substr(0, pos);
                 partialLine.erase(0, pos + 1);
@@ -230,7 +237,9 @@ void Gnss::monitorLoop() {
             }
         }
 
+        LOGI("Step: :d", step++);
         close(fd);
+        LOGI("Step: :d", step++);
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 }
