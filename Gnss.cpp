@@ -245,9 +245,9 @@ void Gnss::parseLine(const std::string& line) {
     }
 
 
-    if (jsonRecord["class"] == "SKY") {
+    if (jsonRecord["class"] == "SKYf") {
         processSatelliteInfo(jsonRecord);
-    } else if (jsonRecord["class"] == "TPV") {
+    } else if (jsonRecord["class"] == "TPVf") {
         processVelocity(jsonRecord);
     } else {
         LOGE("Unknown class: %s", line.c_str());
@@ -326,7 +326,6 @@ void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
 void Gnss::processVelocity(nlohmann::json jsonRecord){
     std::lock_guard<std::mutex> lock(mMutex);
     GnssLocation location = GnssLocationStarter;
-    mGnssLocation = location;
     uint16_t flags = startLocationFlags;
     if (jsonRecord.contains("lat") && jsonRecord.contains("lon")) {
 
@@ -345,7 +344,7 @@ void Gnss::processVelocity(nlohmann::json jsonRecord){
         flags = static_cast<uint16_t>( flags | GnssLocationFlags::HAS_ALTITUDE | GnssLocationFlags::HAS_VERTICAL_ACCURACY);
 
         location.verticalAccuracyMeters = jsonRecord.value("epv", 2 * jsonRecord.value("eph", 1.0));
-        location.altitudeMeters = jsonRecord.value("alt", 10.0);
+        location.altitudeMeters = jsonRecord.value("alt", 0.0);
     }
 
     if (jsonRecord.contains("speed")) {
@@ -365,7 +364,7 @@ void Gnss::processVelocity(nlohmann::json jsonRecord){
 
     location.gnssLocationFlags = flags;
 
-  //  this->reportLocation(location);
+   // this->reportLocation(location);
 
     mGnssLocation = location;
 }
@@ -378,7 +377,7 @@ Return<bool> Gnss::setCallback_1_1(
         return false;
     }
 
-    mIsActive = true;
+        mIsActive = true;
     mThread = std::thread([this]() {
         monitorLoop();
     });
