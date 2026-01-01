@@ -39,8 +39,6 @@ using GnssSvFlags = IGnssCallback::GnssSvFlags;
 using namespace ::android::hardware::gnss::common;
 using json = nlohmann::json;
 
-
-#define LOG_TAG "GpsdMonitor"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
@@ -285,7 +283,7 @@ void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
         }
 
         GnssSvInfo gnssSvInfo{};
-        uint8_t flags = GnssSvFlags::NONE;
+        GnssSvFlags flags = GnssSvFlags::NONE;
 
         gnssSvInfo.svid = satellite.value("PRN", 0);
         switch (satellite.value("gnssid", -1)) {
