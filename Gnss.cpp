@@ -77,7 +77,9 @@ Return<bool> Gnss::start() {
             //auto location = this->getGnssLocation();
            // this->reportLocation(location);
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(mMinIntervalMs));
+            monitorLoop();
+
+           // std::this_thread::sleep_for(std::chrono::milliseconds(mMinIntervalMs));
         }
     });
 
@@ -89,6 +91,7 @@ Return<bool> Gnss::stop() {
     if (mThread.joinable()) {
         mThread.join();
     }
+
     return true;
 }
 
@@ -175,7 +178,7 @@ void Gnss::monitorLoop() {
 
     LOGI("Using GPS FIFO %s from prop \"persist.sys.gnss.gpsd.pipe\"", FIFO_PATH.c_str());
 
-    while (mRunning) {
+    while (mIsActive) {
 
         /* Ensure FIFO exists */
         struct stat st;
@@ -216,7 +219,7 @@ void Gnss::monitorLoop() {
         char buffer[1024];
         std::string partialLine;
 
-        while (mRunning) {
+        while (mIsActive) {
             ssize_t n = read(fd, buffer, sizeof(buffer) - 1);
             if (n <= 0) {
                 if (n < 0) {
@@ -388,8 +391,6 @@ Return<bool> Gnss::setCallback_1_1(
         ALOGE("%s: Null callback ignored", __func__);
         return false;
     }
-
-    monitorLoop();
 
     ALOGI("GpsdMonitor started");
 

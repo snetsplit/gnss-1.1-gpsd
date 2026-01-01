@@ -95,6 +95,8 @@ struct Gnss : public IGnss {
 
     bool hasFix = false;
 
+    bool mRunning = true;
+
     const uint16_t startLocationFlags = static_cast<uint16_t>(V1_0::GnssLocationFlags::HAS_LAT_LONG | V1_0::GnssLocationFlags::HAS_HORIZONTAL_ACCURACY);
     const GnssLocation GnssLocationStarter = {
         .gnssLocationFlags = startLocationFlags,
