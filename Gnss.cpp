@@ -65,21 +65,7 @@ Return<bool> Gnss::start() {
     }
 
     ALOGW("GnssGpsd starting");
-    mIsActive = true;
-    mThread = std::thread([this]() {
-        while (mIsActive == true) {
-          //  auto svStatus = this->getSvStatus();
-          //  this->reportSvStatus(svStatus);
 
-
-            //auto location = this->getGnssLocation();
-           // this->reportLocation(location);
-
-            monitorLoop();
-
-           // std::this_thread::sleep_for(std::chrono::milliseconds(mMinIntervalMs));
-        }
-    });
 
     return true;
 }
@@ -391,6 +377,10 @@ Return<bool> Gnss::setCallback_1_1(
         return false;
     }
 
+    mIsActive = true;
+    mThread = std::thread([this]() {
+        monitorLoop();
+    });
     ALOGI("GpsdMonitor started");
 
     sGnssCallback = callback;
@@ -408,7 +398,7 @@ Return<bool> Gnss::setCallback_1_1(
         ALOGE("%s: Unable to invoke callback", __func__);
     }
 
-    auto gnssName = "Google Mock GNSS Implementation v1.1";
+    auto gnssName = "GPSD GNSS Implementation v1.1";
     ret = sGnssCallback->gnssNameCb(gnssName);
     if (!ret.isOk()) {
         ALOGE("%s: Unable to invoke callback", __func__);
