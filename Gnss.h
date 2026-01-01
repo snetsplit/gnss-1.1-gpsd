@@ -93,6 +93,8 @@ struct Gnss : public IGnss {
     std::string mGpsdServerAddress = "192.168.240.1";
     int mGpsdServerPort =  2947;
 
+    bool hasFix = false;
+
     const uint16_t startLocationFlags = static_cast<uint16_t>(V1_0::GnssLocationFlags::HAS_LAT_LONG | V1_0::GnssLocationFlags::HAS_HORIZONTAL_ACCURACY);
     const GnssLocation GnssLocationStarter = {
         .gnssLocationFlags = startLocationFlags,

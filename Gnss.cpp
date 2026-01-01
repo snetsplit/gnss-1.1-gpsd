@@ -274,8 +274,6 @@ void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
     GnssSvStatus svStatus = GnssSvStatus{};
     svStatus.numSvs = static_cast<int>(jsonRecord["satellites"].size());
 
-    const bool hasFix = mLastLocation.hasLatLong; // however you track fix state
-
     uint32_t index = 0;
 
     for (const auto& satellite : jsonRecord["satellites"]) {
@@ -346,8 +344,10 @@ void Gnss::processVelocity(nlohmann::json jsonRecord){
         location.latitudeDegrees  = jsonRecord.value("lat", 0.0);
         location.longitudeDegrees = jsonRecord.value("lon", 0.0);
         location.horizontalAccuracyMeters = jsonRecord.value("eph", 1.0);
+        hasFix = true;
 
     } else {
+        hasFix = false;
         return;
     }
 
