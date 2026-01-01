@@ -271,7 +271,7 @@ void Gnss::parseLine(const std::string& line) {
 void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
     std::lock_guard<std::mutex> lock(mMutex);
 
-    auto svStatus = GnssSvStatus{};
+    GnssSvStatus svStatus = GnssSvStatus{};
     svStatus.numSvs = static_cast<int>(jsonRecord["satellites"].size());
 
     const bool hasFix = mLastLocation.hasLatLong; // however you track fix state
@@ -330,20 +330,12 @@ void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
         }
 
         gnssSvInfo.svFlag = flags;
-        mSvStatus.gnssSvList[index++] = gnssSvInfo;
+        svStatus.gnssSvList[index++] = gnssSvInfo;
     }
 
-
-    reportSvStatus(svStatus);
+    this->reportSvStatus(svStatus);
+    mSvStatus = svStatus;
 }
-
-    enum GnssSvFlags : uint8_t {
-        NONE                  = 0,
-        HAS_EPHEMERIS_DATA    = 1 << 0,
-        HAS_ALMANAC_DATA      = 1 << 1,
-        USED_IN_FIX           = 1 << 2,
-        HAS_CARRIER_FREQUENCY = 1 << 3
-    };
 
 void Gnss::processVelocity(nlohmann::json jsonRecord){
     std::lock_guard<std::mutex> lock(mMutex);
@@ -384,9 +376,9 @@ void Gnss::processVelocity(nlohmann::json jsonRecord){
 
     location.gnssLocationFlags = flags;
 
-    if (mListener) {
-        mListener->onLocationUpdated(location);
-    }
+    this->reportLocation(location);
+
+    mGnssLocation = location;
 }
 
 // Methods from ::android::hardware::gnss::V1_1::IGnss follow.
@@ -452,13 +444,13 @@ Return<bool> Gnss::injectBestLocation(const GnssLocation&) {
 Return<GnssSvStatus> Gnss::getSvStatus() const {
     std::unique_lock<std::recursive_mutex> lock(mGnssConfiguration->getMutex());
 
-    return Gnss::getInstance().getGnssSvStatus();
+    return mSvStatus;
 }
 
 Return<GnssLocation> Gnss::getGnssLocation() const {
     std::unique_lock<std::recursive_mutex> lock(mGnssConfiguration->getMutex());
 
-    return Gnss::getInstance().getGnssLocation();
+    return mGnssLocation;
 }
 
 Return<void> Gnss::reportLocation(const GnssLocation& location) const {

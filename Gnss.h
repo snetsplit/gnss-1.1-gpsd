@@ -103,6 +103,7 @@ struct Gnss : public IGnss {
     };
 
     GnssLocation mGnssLocation = GnssLocationStarter;
+    GnssSvStatus mSvStatus = GnssSvStatus{};
     time_t mGpsSatelliteTimeout = 0;
 
     Return<GnssSvStatus> getSvStatus() const;
