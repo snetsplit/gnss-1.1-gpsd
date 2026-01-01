@@ -378,7 +378,7 @@ void Gnss::processVelocity(nlohmann::json jsonRecord){
 
     location.gnssLocationFlags = flags;
 
-    this->reportLocation(location);
+   // this->reportLocation(location);
 
     mGnssLocation = location;
 }
