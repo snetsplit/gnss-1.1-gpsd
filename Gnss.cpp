@@ -326,6 +326,7 @@ void Gnss::processSatelliteInfo(nlohmann::json jsonRecord) {
 void Gnss::processVelocity(nlohmann::json jsonRecord){
     std::lock_guard<std::mutex> lock(mMutex);
     GnssLocation location = GnssLocationStarter;
+    mGnssLocation = location;
     uint16_t flags = startLocationFlags;
     if (jsonRecord.contains("lat") && jsonRecord.contains("lon")) {
 
@@ -364,7 +365,7 @@ void Gnss::processVelocity(nlohmann::json jsonRecord){
 
     location.gnssLocationFlags = flags;
 
-    this->reportLocation(location);
+  //  this->reportLocation(location);
 
     mGnssLocation = location;
 }
