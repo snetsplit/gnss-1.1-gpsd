@@ -344,7 +344,7 @@ void Gnss::processVelocity(nlohmann::json jsonRecord){
         flags = static_cast<uint16_t>( flags | GnssLocationFlags::HAS_ALTITUDE | GnssLocationFlags::HAS_VERTICAL_ACCURACY);
 
         location.verticalAccuracyMeters = jsonRecord.value("epv", 2 * jsonRecord.value("eph", 1.0));
-        location.altitudeMeters = jsonRecord.value("alt", 0.0);
+        location.altitudeMeters = jsonRecord.value("alt", 10.0);
     }
 
     if (jsonRecord.contains("speed")) {
