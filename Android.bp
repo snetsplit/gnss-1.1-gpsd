@@ -40,4 +40,7 @@ cc_binary {
     vintf_fragments: [
         "manifest_gnss.xml",
     ],
+        sanitize: {
+        address: true,
+    },
 }
